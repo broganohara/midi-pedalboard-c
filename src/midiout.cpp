@@ -24,42 +24,52 @@
 // an exception.  It offers the user a choice of MIDI ports to open.
 // It returns false if there are no ports available.
 bool chooseMidiPort( RtMidiOut *rtmidi );
+RtMidiOut *setupRtmidi();
 
+#define LOW   0
+#define HIGH  1
 
-#define PIN  24 /* P1-18 */
-#define POUT 4  /* P1-07 */
+#define SOUND_ONE 1
+#define SOUND_TWO 2
+
+#define MIDI
+
+class midi_state {
+  public:
+    int cur_state;
+    int last_msg_sent;
+ };
+
+void button_callback1(int gpio, int level, uint32_t tick, void *user) {
+  midi_state *state = (midi_state *) user;
+  if (level == HIGH) {
+    switch(state->last_msg_sent) {
+      case SOUND_ONE:
+        state->cur_state = 2;
+        break;
+      case SOUND_TWO:
+        state->cur_state = 1;
+        break;
+    }
+  }
+}
+
 
 int main( void )
 {
-  RtMidiOut *midiout = 0;
   std::vector<unsigned char> message;
-
+  std::vector<unsigned char> message1;
+  std::vector<unsigned char> message2;
+  RtMidiOut *midiout = setupRtmidi();
+  if (midiout == NULL)
+    exit(EXIT_FAILURE);
   if (gpioInitialise() == PI_INIT_FAILED)
     exit(EXIT_FAILURE);
+
 
   // GPIO test
   gpioSetMode(4, PI_INPUT);
   gpioSetMode(17, PI_OUTPUT);
-
-  // RtMidiOut constructor
-  try {
-    midiout = new RtMidiOut();
-  }
-  catch ( RtMidiError &error ) {
-    error.printMessage();
-    exit( EXIT_FAILURE );
-  }
-
-  // Call function to select port.
-  try {
-    if ( chooseMidiPort( midiout ) == false ) goto cleanup;
-  }
-  catch ( RtMidiError &error ) {
-    error.printMessage();
-    goto cleanup;
-  }
-
-  // Send out a series of MIDI messages.
 
   // Program change: 192, 5
   message.push_back( 192 );
@@ -68,19 +78,11 @@ int main( void )
 
   SLEEP( 500 );
 
-//  message[0] = 0xF1;
-//  message[1] = 60;
-//  midiout->sendMessage( &message );
-//  // Control Change: 176, 7, 100 (volume)
-//  message[0] = 176;
-//  message[1] = 7;
-//  message.push_back( 100 );
-//  midiout->sendMessage( &message );
-//
   // Note On: 144, 64, 90
   message[0] = 144;
   message[1] = 64;
-  message[2] = 90;
+  //message[2] = 90;
+  message.push_back( 90 );
   midiout->sendMessage( &message );
 
   SLEEP( 500 );
@@ -91,43 +93,78 @@ int main( void )
   message[2] = 40;
   midiout->sendMessage( &message );
 
-//  SLEEP( 500 );
+  midi_state *state = new midi_state();
+  state->cur_state = 0;
+  state->last_msg_sent = SOUND_ONE;
+  gpioSetAlertFuncEx(4, button_callback1, state);
 
-  // Control Change: 176, 7, 40
-//  message[0] = 176;
-//  message[1] = 7;
-//  message[2] = 40;
-//  midiout->sendMessage( &message );
-//
-//  SLEEP( 500 );
-//
-//  // Sysex: 240, 67, 4, 3, 2, 247
-//  message[0] = 240;
-//  message[1] = 67;
-//  message[2] = 4;
-//  message.push_back( 3 );
-//  message.push_back( 2 );
-//  message.push_back( 247 );
-//  midiout->sendMessage( &message );
-//
+  message1.push_back(192);
+  message1.push_back(5);
+
+  message2.push_back(192);
+  message2.push_back(57);
+
+  while(1) {
+    switch(state->cur_state) {
+      case 0:
+        usleep(200);
+        break;
+      case 1:
+        // Send message 1
+        state->last_msg_sent = SOUND_ONE; //state->cur_state;
+        state->cur_state = 0;
+        midiout->sendMessage(&message1);
+        break;
+      case 2:
+        // Send message 2
+        state->last_msg_sent = SOUND_TWO; //state->cur_state;
+        state->cur_state = 0;
+        midiout->sendMessage(&message2);
+        break;
+    }
+  }
   // Clean up
  cleanup:
-  gpioTerminate();
   delete midiout;
-
+  gpioTerminate();
   return 0;
+}
+
+RtMidiOut *setupRtmidi() {
+  RtMidiOut *midiout = 0;
+
+  try {
+    midiout = new RtMidiOut();
+  }
+  catch ( RtMidiError &error ) {
+    error.printMessage();
+    return NULL;
+  }
+
+  // Call function to select port.
+  try {
+    if ( chooseMidiPort( midiout ) == false ) {
+      delete midiout;
+      return NULL;
+    }
+  }
+  catch ( RtMidiError &error ) {
+    error.printMessage();
+    return NULL;
+  }
+  return midiout;
 }
 
 bool chooseMidiPort( RtMidiOut *rtmidi )
 {
-  std::cout << "\nWould you like to open a virtual output port? [y/N] ";
+  //std::cout << "\nWould you like to open a virtual output port? [y/N] ";
 
-  std::string keyHit;
-  std::getline( std::cin, keyHit );
-  if ( keyHit == "y" ) {
-    rtmidi->openVirtualPort();
-    return true;
-  }
+  //std::string keyHit;
+  //std::getline( std::cin, keyHit );
+  //if ( keyHit == "y" ) {
+  //  rtmidi->openVirtualPort();
+  //  return true;
+  //}
 
   std::string portName;
   unsigned int i = 0, nPorts = rtmidi->getPortCount();

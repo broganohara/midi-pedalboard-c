@@ -1,5 +1,5 @@
 CC := g++
-LD_FLAGS := -lrtmidi -lpigpio
+LD_FLAGS := -lrtmidi -lpigpio -lpthread
 INCLUDES := -I/usr/include/rtmidi
 
 SRC := src
