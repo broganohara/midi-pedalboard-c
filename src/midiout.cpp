@@ -9,7 +9,7 @@
 #include <iostream>
 #include <cstdlib>
 #include "RtMidi.h"
-#include "gpio.h"
+#include "pigpio.h"
 
 // Platform-dependent sleep routines.
 #if defined(WIN32)
@@ -34,9 +34,13 @@ int main( void )
   RtMidiOut *midiout = 0;
   std::vector<unsigned char> message;
 
-  if (-1 == GPIOExport(POUT) || -1 == GPIOExport(PIN))
-		return(1);
-  
+  if (gpioInitialise() == PI_INIT_FAILED)
+    exit(EXIT_FAILURE);
+
+  // GPIO test
+  gpioSetMode(4, PI_INPUT);
+  gpioSetMode(17, PI_OUTPUT);
+
   // RtMidiOut constructor
   try {
     midiout = new RtMidiOut();
@@ -108,6 +112,7 @@ int main( void )
 //
   // Clean up
  cleanup:
+  gpioTerminate();
   delete midiout;
 
   return 0;
