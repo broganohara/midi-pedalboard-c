@@ -1,2 +1,4 @@
+*.o
+pedal-main
 *.out
 obj/

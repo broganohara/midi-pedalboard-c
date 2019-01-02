@@ -9,6 +9,7 @@
 #include <iostream>
 #include <cstdlib>
 #include "RtMidi.h"
+#include "gpio.h"
 
 // Platform-dependent sleep routines.
 #if defined(WIN32)
@@ -24,11 +25,18 @@
 // It returns false if there are no ports available.
 bool chooseMidiPort( RtMidiOut *rtmidi );
 
+
+#define PIN  24 /* P1-18 */
+#define POUT 4  /* P1-07 */
+
 int main( void )
 {
   RtMidiOut *midiout = 0;
   std::vector<unsigned char> message;
 
+  if (-1 == GPIOExport(POUT) || -1 == GPIOExport(PIN))
+		return(1);
+  
   // RtMidiOut constructor
   try {
     midiout = new RtMidiOut();
@@ -59,7 +67,6 @@ int main( void )
 //  message[0] = 0xF1;
 //  message[1] = 60;
 //  midiout->sendMessage( &message );
-//
 //  // Control Change: 176, 7, 100 (volume)
 //  message[0] = 176;
 //  message[1] = 7;
